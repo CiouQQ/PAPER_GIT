@@ -60,8 +60,11 @@ class ActorCriticModel(nn.Module):
         nn.init.orthogonal_(self.lin_hidden.weight, np.sqrt(2))
 
         # self.graph_module = GraphModule(1, 16)  # Assuming 1 feature per node
-        self.conv1 = GCNConv(75, 150)
-        self.conv2 = GCNConv(150, 300)
+        self.conv1 = GCNConv(75, 75)
+        self.conv2 = GCNConv(75, 150)
+        self.conv3 = GCNConv(150, 150)
+        self.conv4 = GCNConv(150, 300)
+        self.conv5 = GCNConv(300, 300)
         # Transformer Blocks
         self.transformer = Transformer(config["transformer"], self.memory_layer_size, self.max_episode_length)
 
@@ -121,6 +124,9 @@ class ActorCriticModel(nn.Module):
         # h = self.graph_module(x, edge_index)
         h = F.leaky_relu(self.conv1(x, edge_index))
         h = F.leaky_relu(self.conv2(h, edge_index))
+        h = F.leaky_relu(self.conv3(h, edge_index))
+        h = F.leaky_relu(self.conv4(h, edge_index))
+        h = F.leaky_relu(self.conv5(h, edge_index))
         h = h.reshape((obs.size()[0], -1))
         h = self.leaky_relu(self.lin_hidden(h))
         # Forward transformer blocks
@@ -138,6 +144,7 @@ class ActorCriticModel(nn.Module):
         if action_mask is not None:
             for i in range(len(logits)):
                 logits[i] = logits[i] + action_mask.log()
+
         # Head: Policy
         pi = [Categorical(logits=logit) for logit in logits]
         # pi = [Categorical(logits=branch(h_policy)) for branch in self.policy_branches]
@@ -187,7 +194,7 @@ class ActorCriticModel(nn.Module):
         """
         grads = {}
         if len(self.observation_space_shape) > 1:
-            grads["encoder"] = self._calc_grad_norm(self.conv1, self.conv2)  
+            grads["encoder"] = self._calc_grad_norm(self.conv1, self.conv2, self.conv3, self.conv4, self.conv5)  
             
         grads["linear_layer"] = self._calc_grad_norm(self.lin_hidden)
         

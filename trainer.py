@@ -131,15 +131,19 @@ class PPOTrainer:
             learning_rate = polynomial_decay(self.lr_schedule["initial"], self.lr_schedule["final"], self.lr_schedule["max_decay_steps"], self.lr_schedule["power"], update)
             beta = polynomial_decay(self.beta_schedule["initial"], self.beta_schedule["final"], self.beta_schedule["max_decay_steps"], self.beta_schedule["power"], update)
             clip_range = polynomial_decay(self.cr_schedule["initial"], self.cr_schedule["final"], self.cr_schedule["max_decay_steps"], self.cr_schedule["power"], update)
-            
+            start_time = time.time()
             # Sample training data
             sampled_episode_info = self._sample_training_data()
-
+            end_time = time.time()
+            print(f"sample time：{end_time - start_time} 秒") 
             # Prepare the sampled data inside the buffer (splits data into sequences)
             self.buffer.prepare_batch_dict()
-
+            print("start train")
+            start_time = time.time()
             # Train epochs
             training_stats, grad_info = self._train_epochs(learning_rate, clip_range, beta)
+            end_time = time.time()
+            print(f"train time：{end_time - start_time} 秒")
             print("learning_rate ", learning_rate)
             training_stats = np.mean(training_stats, axis=0)
             # print(training_stats)
@@ -298,11 +302,21 @@ class PPOTrainer:
             {tuple} -- Training and gradient statistics of one training epoch"""
         train_info, grad_info = [], {}
         for _ in range(self.config["epochs"]):
+            print("epoch",_)
+            startime = time.time()
             mini_batch_generator = self.buffer.mini_batch_generator()
+            i = 0
             for mini_batch in mini_batch_generator:
+                i += 1
+                print("times",i)
+                mini_batch_start = time.time()
                 train_info.append(self._train_mini_batch(mini_batch, learning_rate, clip_range, beta))
                 for key, value in self.model.get_grad_norm().items():
                     grad_info.setdefault(key, []).append(value)
+                mini_batch_end = time.time()
+                print(f"mini_batch time：{mini_batch_end - mini_batch_start} 秒")
+            endtime = time.time()
+            print(f"epoch time：{endtime - startime} 秒")
         return train_info, grad_info
 
     def _train_mini_batch(self, samples:dict, learning_rate:float, clip_range:float, beta:float) -> list:

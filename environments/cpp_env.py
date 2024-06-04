@@ -22,9 +22,9 @@ class ChinesePostman:
         self.num_nodes = num_nodes
         self.side = self.num_nodes**0.5
         self.map = np.zeros((num_nodes, num_nodes))
-        self.current_node = random.randint(0, 3)
+        self.current_node = random.randint(0, 24)
         self.deopt = self.current_node
-        self.num_edges_to_remove = random.randint(0, 0)
+        self.num_edges_to_remove = random.randint(8, 10)
         self.traveled = np.zeros((num_nodes, num_nodes))
         self.generate_map()
         self.main_road_matrix = self.map.copy()
@@ -329,68 +329,68 @@ class ChinesePostman:
         nx.draw_networkx_edge_labels(G, pos, edge_labels=labels, font_color='c', font_size=20)
         plt.savefig(file_name)
         plt.show()
-    def find_untraveled_edges(self):
-        untraveled_edges = []
-        for i in range(self.num_nodes):
-            for j in range(i + 1, self.num_nodes):  # 
-                if self.map[i][j] > 0 and self.traveled[i][j] == 0:
-                    untraveled_edges.append((i, j))
-        return untraveled_edges
-    def print_shortest_path(self, target):
-        #
-        if target >= self.num_nodes or target < 0:
-            return f"Invalid target node: {target}. Node must be between 0 and {self.num_nodes - 1}"
+    # def find_untraveled_edges(self):
+    #     untraveled_edges = []
+    #     for i in range(self.num_nodes):
+    #         for j in range(i + 1, self.num_nodes):  # 
+    #             if self.map[i][j] > 0 and self.traveled[i][j] == 0:
+    #                 untraveled_edges.append((i, j))
+    #     return untraveled_edges
+    # def print_shortest_path(self, target):
+    #     #
+    #     if target >= self.num_nodes or target < 0:
+    #         return f"Invalid target node: {target}. Node must be between 0 and {self.num_nodes - 1}"
         
-        if self.current_node == target:
-            return f"The current node {self.current_node} is the target node."
+    #     if self.current_node == target:
+    #         return f"The current node {self.current_node} is the target node."
 
-        try:
-            # 
-            path = nx.shortest_path(self.Gmap, source=self.current_node, target=target)
-            if len(path) > 1:
-                return path[1:]
-            else:
-                return path
-        except nx.NetworkXNoPath:
-            # 
-            return f"No path from node {self.current_node} to node {target}."
-    def print_path_to_random_untraveled_edge(self):
-        # 
-        untraveled_edges = self.find_untraveled_edges()
-        if not untraveled_edges:
-            return self.print_shortest_path(0)
+    #     try:
+    #         # 
+    #         path = nx.shortest_path(self.Gmap, source=self.current_node, target=target)
+    #         if len(path) > 1:
+    #             return path[1:]
+    #         else:
+    #             return path
+    #     except nx.NetworkXNoPath:
+    #         # 
+    #         return f"No path from node {self.current_node} to node {target}."
+    # def print_path_to_random_untraveled_edge(self):
+    #     # 
+    #     untraveled_edges = self.find_untraveled_edges()
+    #     if not untraveled_edges:
+    #         return self.print_shortest_path(0)
 
-        # 
+    #     # 
         
-        random_edge = random.choice(untraveled_edges)
-        target_node = random.choice(random_edge)  # 
-        if self.current_node == target_node:
-            target_node = random_edge[0] if target_node == random_edge[1] else random_edge[1]
+    #     random_edge = random.choice(untraveled_edges)
+    #     target_node = random.choice(random_edge)  # 
+    #     if self.current_node == target_node:
+    #         target_node = random_edge[0] if target_node == random_edge[1] else random_edge[1]
 
-        other_node = random_edge[0] if target_node == random_edge[1] else random_edge[1]
-        path = self.print_shortest_path(target_node)
-        # print(path,"--------------")
-        if other_node not in path:
-            path.append(other_node)
-        # print("The target is :", target_node)
-        # 
-        return path
-    def manage_path_to_untraveled_edge(self):
-        if self.target_path is None or not self.target_path:
-            # 
-            path = self.print_path_to_random_untraveled_edge()
-            if isinstance(path, list):  # 
-                self.target_path = path
-            return path
-        else:
-            # 
-            if self.current_node == self.target_path[0]:
-                self.target_path.pop(0)  # 
-            if not self.target_path:
-                path = self.print_path_to_random_untraveled_edge()
-                if isinstance(path, list):  # 
-                    self.target_path = path
-            return self.target_path
+    #     other_node = random_edge[0] if target_node == random_edge[1] else random_edge[1]
+    #     path = self.print_shortest_path(target_node)
+    #     # print(path,"--------------")
+    #     if other_node not in path:
+    #         path.append(other_node)
+    #     # print("The target is :", target_node)
+    #     # 
+    #     return path
+    # def manage_path_to_untraveled_edge(self):
+    #     if self.target_path is None or not self.target_path:
+    #         # 
+    #         path = self.print_path_to_random_untraveled_edge()
+    #         if isinstance(path, list):  # 
+    #             self.target_path = path
+    #         return path
+    #     else:
+    #         # 
+    #         if self.current_node == self.target_path[0]:
+    #             self.target_path.pop(0)  # 
+    #         if not self.target_path:
+    #             path = self.print_path_to_random_untraveled_edge()
+    #             if isinstance(path, list):  # 
+    #                 self.target_path = path
+    #         return self.target_path
         
 # cp = ChinesePostman()
 # print("------")
