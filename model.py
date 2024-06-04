@@ -56,12 +56,12 @@ class ActorCriticModel(nn.Module):
         #     # Case: vector observation is available
         #     in_features_next_layer = observation_space.shape[0]
         # Hidden layer
-        self.lin_hidden = nn.Linear(5000, self.memory_layer_size)
+        self.lin_hidden = nn.Linear(7500, self.memory_layer_size)
         nn.init.orthogonal_(self.lin_hidden.weight, np.sqrt(2))
 
         # self.graph_module = GraphModule(1, 16)  # Assuming 1 feature per node
-        self.conv1 = GCNConv(50, 100)
-        self.conv2 = GCNConv(100, 200)
+        self.conv1 = GCNConv(75, 150)
+        self.conv2 = GCNConv(150, 300)
         # Transformer Blocks
         self.transformer = Transformer(config["transformer"], self.memory_layer_size, self.max_episode_length)
 
@@ -113,8 +113,9 @@ class ActorCriticModel(nn.Module):
 
         # # Feed hidden layer
         # h = self.leaky_relu(self.lin_hidden(h))
-        x1, x2, edge_index = self.process_observation(obs)
-        x = torch.cat((x1, x2), dim=2)
+        x1, x2, x3, edge_index = self.process_observation(obs) 
+        x = torch.cat((x1, x2, x3), dim=2)
+        # break
         # print("x",x.shape) # torch.Size([8, 625, 2])
         # print("obs",obs.shape) #torch.Size([8, 2, 25, 25])   ([8, 25, 50])
         # h = self.graph_module(x, edge_index)
@@ -137,7 +138,6 @@ class ActorCriticModel(nn.Module):
         if action_mask is not None:
             for i in range(len(logits)):
                 logits[i] = logits[i] + action_mask.log()
-
         # Head: Policy
         pi = [Categorical(logits=logit) for logit in logits]
         # pi = [Categorical(logits=branch(h_policy)) for branch in self.policy_branches]
@@ -148,8 +148,9 @@ class ActorCriticModel(nn.Module):
         # This is a simplified example assuming obs directly gives the features and edges
         x1 = obs[:, 0, :, :].view(obs.size(0), -1, 25)  # Reshape to (batch_size, num_nodes, num_features) torch.Size([8, 625, 1])
         x2 = obs[:, 1, :, :].view(obs.size(0), -1, 25)
+        x3 = obs[:, 2, :, :].view(obs.size(0), -1, 25)
         edge_index = self.create_edge_index(5)  # Assuming 5x5 grid
-        return x1, x2, edge_index
+        return x1, x2, x3, edge_index
     
     def create_edge_index(self, n):
         # Creates edge index for an n x n grid
@@ -253,28 +254,28 @@ class ActorCriticModel(nn.Module):
             for action in range(num_actions):
                 node1, node2 = self.decode_edge_action(action, side)
                 # 
-                if obs[i, 0, node1, node2] == 0 or obs[i, 1, node1, node2] > 0:
+                if obs[i, 0, node1, node2] == 0 or obs[i, 1, node1, node2] >= obs[i, 2, node1, node2]:
                     action_mask[i, action] = 0  # 
 
-        # 憒���𨅯�券�典𢆡雿𣈯�質◤�桃蔗嚗�鍳�鍂銝𦒘�枏�梶㮾�餌�颲�
+        # 
         for i in range(num_workers):
-            if torch.all(action_mask[i] == 0):  # 璉��䰻�糓�炏����匧𢆡雿𣈯�質◤�桃蔗
+            if torch.all(action_mask[i] == 0):  # 
                 for j in current_position:
                     for action in range(num_actions):
                         node1, node2 = self.decode_edge_action(action, side)
                         if j in [node1, node2] and obs[i, 0, node1, node2] > 0:
-                            action_mask[i, action] = 1  # �鍳�鍂銝𦒘�枏�梶㮾�餌�颲�
+                            action_mask[i, action] = 1  # 
                             break
         # print("actionmask",action_mask)
         return action_mask
 
     def decode_edge_action(self, action, side):
-        if action < side * (side - 1):  # 瘞游像颲�
+        if action < side * (side - 1):  # 嚙踝蕭憓扯�頣蕭隤荔�枏�辷蕭
             row = action // (side - 1)
             col = action % (side - 1)
             node1 = row * side + col
             node2 = node1 + 1
-        else:  # ���凒颲�
+        else:  # ��躰�肽𨯙��躰郭嚙賬遬嚗枏�辷蕭
             action -= side * (side - 1)
             row = action // side
             col = action % side
