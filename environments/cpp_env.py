@@ -5,6 +5,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from gym import spaces
 import copy
+import os
 import time
 NUM_NODES = 25
 Side = int(NUM_NODES**0.5)
@@ -15,17 +16,20 @@ def is_connected(matrix):
     graph = nx.from_numpy_array(matrix)
     return nx.is_connected(graph)
 
+
 class ChinesePostman:
     def __init__(self, num_nodes=NUM_NODES):
         self.num_nodes = num_nodes
         self.side = self.num_nodes**0.5
         self.map = np.zeros((num_nodes, num_nodes))
-        self.current_node = random.randint(0, 24)
+        self.current_node = random.randint(0, 3)
         self.deopt = self.current_node
-        self.num_edges_to_remove = random.randint(8, 10)
+        self.num_edges_to_remove = random.randint(0, 0)
         self.traveled = np.zeros((num_nodes, num_nodes))
         self.generate_map()
+        self.main_road_matrix = self.map.copy()
         self.need_to_travel = np.sum(self.map > 0) / 2
+        self.main_road()
         self.traveled_num =  0
         self.max_episode_steps = 40
         self.step_count = 0
@@ -51,12 +55,12 @@ class ChinesePostman:
         self.traveled[self.traveled_zero_mask] = -1
         self.map_model[self.deopt][self.deopt] = 1
         self.traveled[self.deopt][self.deopt] = 1
-        
+  
     @property
     def observation_space(self):
         observation_space = spaces.Box(low=-1,
                                high=20,
-                               shape=(2,self.num_nodes,self.num_nodes), dtype=np.int32)
+                               shape=(3,self.num_nodes,self.num_nodes), dtype=np.int32)
         # print("test")
         return observation_space
 
@@ -65,13 +69,26 @@ class ChinesePostman:
         action_space = spaces.Discrete(int(self.side*(self.side-1)*2))
         return action_space
     
+    def main_road(self):
+        for i in range(self.num_nodes):
+            for j in range(i+1, self.num_nodes):
+                if self.map[i,j] != 0:
+                    if np.random.rand() < 0.95 :
+                        self.main_road_matrix[i,j] = 1
+                    else:
+                        self.main_road_matrix[i,j] = 2
+                        # print("Need to 2 times: ",i," & ", j)
+                    self.main_road_matrix[j, i] = self.main_road_matrix[i, j]
+                    
+        
+    
     def initialize_adjacency_matrix(self):
         # Setup initial connected grid structure
         for i in range(self.num_nodes):
             if i % Side != Side - 1:
-                self.map[i][i + 1] = self.map[i + 1][i] = 10
+                self.map[i][i + 1] = self.map[i + 1][i] = random.randint(10, 10)
             if i < Side * (Side - 1):
-                self.map[i][i + Side] = self.map[i + Side][i] = 10
+                self.map[i][i + Side] = self.map[i + Side][i] = random.randint(10, 10)
         
         self.map_mask = np.ones_like(self.map, dtype=bool)
         np.fill_diagonal(self.map_mask, False)
@@ -95,18 +112,21 @@ class ChinesePostman:
                 self.map[edge_to_remove[0], edge_to_remove[1]] = 10
                 self.map[edge_to_remove[1], edge_to_remove[0]] = 10
     def fix_remove_deges(self):
-        edges_to_remove = [(2, 7), (3, 8), (4, 9),  (13, 18), (18, 23), (8, 9), (11, 12), (20, 21), (22, 23)]
+        # edges_to_remove = [(1, 6), (9, 14), (12, 17), (17, 22),  (19, 24), (5, 6), (6, 7), (7, 8), (15, 16)]
+        edges_to_remove = [(3, 4), (7, 8), (12, 13), (12, 13),  (16, 17), (20, 21), (22, 23), (7, 12)]
         for edge in edges_to_remove:
             self.map[edge[0], edge[1]] = self.map[edge[1], edge[0]] = 0
 
     def generate_map(self):
         self.initialize_adjacency_matrix()
+        # self.map = np.copy(self.load_random_array())
+        # np.fill_diagonal(self.map, 0)
         self.randomly_remove_edges()
         # self.fix_remove_deges()
 
     def get_observation(self):
-        combined_map = np.concatenate((self.map_model, self.traveled), axis=0)
-        combined_map = combined_map.reshape(2, self.num_nodes, self.num_nodes)
+        combined_map = np.concatenate((self.map_model, self.traveled, self.main_road_matrix), axis=0)
+        combined_map = combined_map.reshape(3, self.num_nodes, self.num_nodes)
         return combined_map
 
     def reset(self):
@@ -179,10 +199,19 @@ class ChinesePostman:
             self.path.append(end_node)
             if self.map[start_node][end_node] > 0:
                 if self.traveled[start_node][end_node] == 0:
-                    self.traveled_num += 1
-                    reward += 20
+                    if self.traveled[start_node][end_node] < self.main_road_matrix[start_node][end_node]:
+                        # self.traveled_num += 1
+                        reward += 20
+                    
+                
                 self.traveled[start_node][end_node] += 1
                 self.traveled[end_node][start_node] = self.traveled[start_node][end_node]
+                if self.traveled[start_node][end_node] == self.main_road_matrix[start_node][end_node]:
+                    self.traveled_num += 1
+                    
+                #     print("traveled",self.traveled[start_node][end_node] )
+                #     print("main_road_matrix",self.main_road_matrix[start_node][end_node])
+                    
                 
             else:
                 reward -= 1000
@@ -198,7 +227,7 @@ class ChinesePostman:
                 file.write('1')
             self.alledge = 1
         if self.alledge == 1 and self.deopt == self.current_node:
-            reward += 300
+            reward += 100
             with open('test.txt', 'a') as file:
                 file.write('2')
             self.ok = 1 
@@ -217,6 +246,9 @@ class ChinesePostman:
                     "length": len(self._rewards),
                     "distance":(self.total_distance)}
             # print(info)
+            # if (self.total_distance) < 460:
+                # self.save_array(self.map)
+                
         else:
             info = None
         combined_map = self.get_observation()
@@ -228,6 +260,7 @@ class ChinesePostman:
     def render(self):
         # input()
         # time.sleep(0.5)
+        print("Current path:", self.path)
         if self.done == True:
             print("Current path:", self.path)
         # print(f"Currently at {self.current_node}")
@@ -235,6 +268,31 @@ class ChinesePostman:
 
     def close(self):
         print("close")
+    def save_array(self, test_data, filename="test_data.npz", expected_dtype=np.float64):
+        if test_data.dtype != expected_dtype:
+            raise ValueError(f"Data type of the array must be {expected_dtype}, but got {test_data.dtype}.")
+        data_dict = {}
+        if os.path.exists(filename):
+            with np.load(filename, allow_pickle=True) as data:
+                data_dict = dict(data)
+        # 將新的數據加入字典
+        data_dict[f"array_{len(data_dict)}"] = test_data
+        # 保存更新後的數據
+        np.savez_compressed(filename, **data_dict)
+
+    # 從npz文件中隨機選取一個numpy數組，並檢查數據完整性
+    def load_random_array(self, filename="test_data.npz", expected_shape=(25, 25)):
+        if not os.path.exists(filename):
+            raise FileNotFoundError("The specified file does not exist.")
+        with np.load(filename, allow_pickle=True) as data:
+            keys = list(data.keys())
+            if not keys:
+                raise ValueError("No data available in the file.")
+            random_key = random.choice(keys)
+            random_array = data[random_key]
+            if random_array.shape != expected_shape:
+                raise ValueError(f"Expected array shape {expected_shape}, but got {random_array.shape}.")
+        return random_array
 
     def create_networkx_graph(self):
         G = nx.Graph()
@@ -245,7 +303,24 @@ class ChinesePostman:
         return G
     def get_pos(self):
         pos = {i: (i % Side, Side - 1 - i // Side) for i in range(NUM_NODES)}
+        Hedges = [(u, v, {'weight': data['weight']}) for u, v, data in self.Gmap.edges(data=True)]
+        pos = self.adjust_positions(pos, Hedges )
+        print("function pos ",pos)
         return pos
+    def adjust_positions(self, pos, edges):
+        for edge in edges:
+            start, end = int(edge[0]), int(edge[1])
+            distance = edge[2]['weight']
+            dx, dy = float(pos[end][0] - pos[start][0]), float(pos[end][1] - pos[start][1])
+            z = (dx*dx + dy*dy) ** 0.5
+
+
+            # 計算距離比例因子
+            factor = distance / 10  # 假設50是基準距離
+            pos[end] = (pos[start][0] + factor * dx/z, pos[start][1] + factor * dy/z)
+
+
+        return pos    
 
     def plot_graph(self, G, pos, file_name="graph.png"):
         plt.figure(figsize=(15, 15))
@@ -318,28 +393,35 @@ class ChinesePostman:
             return self.target_path
         
 # cp = ChinesePostman()
+# print("------")
 # state = cp.reset()
-# print("map",state[0])
-# print("travel",state[1])
+# pos = cp.get_pos()
+# # print("pos", pos)
+# # print("get pos",cp.get_pos())
 # G = cp.create_networkx_graph()
-# pos = {i: (i % Side, Side - 1 - i // Side) for i in range(NUM_NODES)}
-# cp.plot_graph(G, pos, "test2.png")
-# print(cp.action_space)
+# # print(G.edges(data=True))
+# cp.plot_graph(G, pos, "0528.png")
+# # print("check",cp.check[1])
+# # print("map",cp.map[1])
+# # array1 = cp.check[0]
+# # array2 = cp.map[0]
+
+# # print(cp.action_space)
 # cp.render()
 # for _ in range(50):  # Take 10 random steps in the environment
 #     print("now is ",cp.renderction)
 #     action = int(input("Next will go:"))
+#     print("acitno is" ,action)
 #     state, reward, done, info= cp.step(action)
-#     print("map",state[0])
-#     print("travel",state[1])
+#     # print("map",state[0])
+#     # print("travel",state[1])
 #     # print("treavek is ",state[1])
-#     print("reward is ",reward)
-
-#     cp.render()
-#     # print("path:", cp.manage_path_to_untraveled_edge()) 
+#     # print("reward is ",reward)
+# # 
 #     cp.render()
 #     if done:
 #         print("done")
+#         cp.reset()
 
 # Example usage
 # cp = ChinesePostman()
