@@ -198,10 +198,10 @@ class ChinesePostman:
             end_node = shortest_path[i+1]
             self.path.append(end_node)
             if self.map[start_node][end_node] > 0:
-                if self.traveled[start_node][end_node] == 0:
-                    if self.traveled[start_node][end_node] < self.main_road_matrix[start_node][end_node]:
+                # if self.traveled[start_node][end_node] == 0:
+                #     if self.traveled[start_node][end_node] < self.main_road_matrix[start_node][end_node]:
                         # self.traveled_num += 1
-                        reward += 20
+                        # reward += 20
                     
                 
                 self.traveled[start_node][end_node] += 1
@@ -227,7 +227,7 @@ class ChinesePostman:
                 file.write('1')
             self.alledge = 1
         if self.alledge == 1 and self.deopt == self.current_node:
-            reward += 100
+            # reward += 100
             with open('test.txt', 'a') as file:
                 file.write('2')
             self.ok = 1 
